@@ -1,0 +1,9 @@
+{
+  "name": "Ultimate Content Repurposer",
+  "description": "A premium AI-powered tool to transform YouTube videos and blog posts into high-performing social media assets for LinkedIn, Instagram, X, and more.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}
