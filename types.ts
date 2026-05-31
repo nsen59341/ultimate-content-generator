@@ -25,6 +25,22 @@ export interface ContentCardData {
   type: 'YouTube' | 'Blog';
 }
 
+export interface UserPreferences {
+  complexity: 'simple' | 'complex';
+  tone: 'basic' | 'technical';
+  length: 'short' | 'medium' | 'long';
+  audience: string;
+  customInstructions: string;
+}
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  complexity: 'complex',
+  tone: 'technical',
+  length: 'medium',
+  audience: 'Professionals & Creators',
+  customInstructions: ''
+};
+
 export interface GenerationResult {
   platform: Platform;
   content: string;

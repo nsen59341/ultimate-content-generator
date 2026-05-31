@@ -1,10 +1,11 @@
 
 import React, { useState, useCallback } from 'react';
-import { WorkflowState, Platform, ContentCardData, GenerationResult } from './types';
+import { WorkflowState, Platform, ContentCardData, GenerationResult, UserPreferences, DEFAULT_PREFERENCES } from './types';
 import Header from './components/Header';
 import InputSection from './components/InputSection';
 import ContentCard from './components/ContentCard';
 import PlatformSelector from './components/PlatformSelector';
+import PreferencesSection from './components/PreferencesSection';
 import OutputView from './components/OutputView';
 import { fetchAndAnalyzeContent, generatePlatformContent, generateImage, generateVideo } from './services/gemini';
 
@@ -15,6 +16,7 @@ const App: React.FC = () => {
   const [cardData, setCardData] = useState<ContentCardData | null>(null);
   const [impactSummary, setImpactSummary] = useState('');
   const [fullContent, setFullContent] = useState('');
+  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [genResult, setGenResult] = useState<GenerationResult | null>(null);
 
   const handleInputSubmit = async (input: string) => {
@@ -49,7 +51,7 @@ const App: React.FC = () => {
     setGenResult({ platform, content: '' });
 
     try {
-      const promptOrContent = await generatePlatformContent(platform, fullContent);
+      const promptOrContent = await generatePlatformContent(platform, fullContent, preferences);
       
       let finalResult: GenerationResult = { platform, content: promptOrContent };
       
@@ -95,7 +97,10 @@ const App: React.FC = () => {
             <ContentCard data={cardData} impact={impactSummary} />
             
             {state === WorkflowState.DASHBOARD && (
-              <PlatformSelector onSelect={handlePlatformSelect} isGenerating={isLoading} />
+              <>
+                <PreferencesSection preferences={preferences} onChange={setPreferences} />
+                <PlatformSelector onSelect={handlePlatformSelect} isGenerating={isLoading} />
+              </>
             )}
 
             {state === WorkflowState.GENERATING && genResult && (

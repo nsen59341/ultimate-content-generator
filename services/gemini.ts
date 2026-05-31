@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse, Modality } from "@google/genai";
-import { ContentCardData, Platform } from "../types";
+import { ContentCardData, Platform, UserPreferences } from "../types";
 
 export const getGeminiClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
@@ -82,7 +82,11 @@ export async function fetchAndAnalyzeContent(input: string): Promise<{ card: Con
   }
 }
 
-export async function generatePlatformContent(platform: Platform, sourceContent: string): Promise<string> {
+export async function generatePlatformContent(
+  platform: Platform, 
+  sourceContent: string, 
+  preferences?: UserPreferences
+): Promise<string> {
   const ai = getGeminiClient();
   
   const platformInstructions: Record<Platform, string> = {
@@ -96,11 +100,45 @@ export async function generatePlatformContent(platform: Platform, sourceContent:
     [Platform.Video]: "VEO SCENE: Describe a cinematic, slow-motion sequence that captures the essence of this content. High production value instructions only."
   };
 
+  let preferenceInstructions = "";
+  if (preferences) {
+    const depth = preferences.complexity === 'simple' 
+      ? "- COMPLEXITY & DEPTH: Keep the content highly simple and direct. Use basic explanations, high-level structural digests, and avoid deep technical or multi-layered systematic breakdowns."
+      : "- COMPLEXITY & DEPTH: Build highly detailed, complex, nuanced, and structurally complex content. Target rigorous breakdowns, multi-layered insights, and explore advanced implications.";
+      
+    const toneMastery = preferences.tone === 'basic'
+      ? "- TONE & TERMINOLOGY: Keep it conversational, basic, friendly, and accessible. Replace heavy terms with relatable real-world analogies."
+      : "- TONE & TERMINOLOGY: Use a technical, expert, and domain-authentic tone. Utilize standard professional or technical terminology with zero dumbing-down.";
+      
+    const lengthStyle = preferences.length === 'short'
+      ? "- TARGET LENGTH: Be extremely concise and crisp (short style). Focus on high-impact hooks, direct answers, and minimum background fluff."
+      : preferences.length === 'long'
+        ? "- TARGET LENGTH: Be comprehensive and detailed (long style). Build dense sub-points, thorough reasoning, and rich value-adds with significant details."
+        : "- TARGET LENGTH: Balanced medium length. Deliver comfortable reading speed with perfect detail-to-conciseness ratio.";
+
+    const targetAudience = preferences.audience 
+      ? `- TARGET AUDIENCE PROFILE: Align language, tone, metaphors, and value proposition specifically for: ${preferences.audience}` 
+      : "";
+
+    const userDirectives = preferences.customInstructions 
+      ? `- SPECIAL STYLE DIRECTIVES & RULES:\n${preferences.customInstructions}` 
+      : "";
+
+    preferenceInstructions = `
+PREFERENCE ALIGNMENT RULES (STRICTLY ADHERE TO THESE):
+${depth}
+${toneMastery}
+${lengthStyle}
+${targetAudience}
+${userDirectives}
+`;
+  }
+
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Platform: ${platform}\nSource Content: ${sourceContent}`,
     config: {
-      systemInstruction: GLOBAL_TONE_INSTRUCTION + "\n" + platformInstructions[platform]
+      systemInstruction: GLOBAL_TONE_INSTRUCTION + "\n" + platformInstructions[platform] + "\n" + preferenceInstructions
     }
   });
 
