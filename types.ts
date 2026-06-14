@@ -41,6 +41,17 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   customInstructions: ''
 };
 
+export interface HistoryItem {
+  id: string;
+  sourceInput: string;
+  cardData: ContentCardData;
+  impactSummary: string;
+  fullContent: string;
+  preferences: UserPreferences;
+  generations: GenerationResult[];
+  createdAt: string;
+}
+
 export interface GenerationResult {
   platform: Platform;
   content: string;

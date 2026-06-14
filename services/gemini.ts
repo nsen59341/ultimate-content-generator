@@ -1,4 +1,4 @@
-import { ContentCardData, Platform, UserPreferences } from "../types";
+import { ContentCardData, Platform, UserPreferences, HistoryItem } from "../types";
 
 export async function fetchAndAnalyzeContent(input: string): Promise<{ card: ContentCardData; impact: string; fullContent: string }> {
   try {
@@ -107,3 +107,43 @@ export async function generateVideo(prompt: string): Promise<string> {
   // Return the high-production abstract video loop URL directly for flawless browser playback
   return result.videoUrl;
 }
+
+export async function fetchHistory(): Promise<HistoryItem[]> {
+  try {
+    const res = await fetch("/api/history");
+    if (!res.ok) {
+      throw new Error("Failed to load history.");
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("API error fetching history:", error);
+    return [];
+  }
+}
+
+export async function saveHistory(item: HistoryItem): Promise<boolean> {
+  try {
+    const res = await fetch("/api/history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ item })
+    });
+    return res.ok;
+  } catch (error) {
+    console.error("API error saving history item:", error);
+    return false;
+  }
+}
+
+export async function deleteHistoryItem(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/history/${id}`, {
+      method: "DELETE"
+    });
+    return res.ok;
+  } catch (error) {
+    console.error("API error deleting history item:", error);
+    return false;
+  }
+}
+

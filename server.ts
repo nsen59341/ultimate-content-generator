@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { OpenAI } from "openai";
 
@@ -127,6 +128,28 @@ async function tryFetchUrl(url: string): Promise<string> {
   return `URL: ${url}`;
 }
 
+const HISTORY_FILE_PATH = path.join(process.cwd(), "history.json");
+
+function readHistoryFromFile(): any[] {
+  try {
+    if (fs.existsSync(HISTORY_FILE_PATH)) {
+      const data = fs.readFileSync(HISTORY_FILE_PATH, "utf-8");
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error("Failed to read history from file:", error);
+  }
+  return [];
+}
+
+function writeHistoryToFile(history: any[]): void {
+  try {
+    fs.writeFileSync(HISTORY_FILE_PATH, JSON.stringify(history, null, 2), "utf-8");
+  } catch (error) {
+    console.error("Failed to write history to file:", error);
+  }
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json());
@@ -134,6 +157,50 @@ async function startServer() {
   // API endpoints
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // History API Endpoints
+  app.get("/api/history", (req, res) => {
+    try {
+      const history = readHistoryFromFile();
+      res.json(history);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to retrieve history." });
+    }
+  });
+
+  app.post("/api/history", (req, res) => {
+    try {
+      const { item } = req.body;
+      if (!item || !item.id) {
+        res.status(400).json({ error: "Missing or invalid history item." });
+        return;
+      }
+
+      const history = readHistoryFromFile();
+      const index = history.findIndex((h: any) => h.id === item.id);
+      if (index > -1) {
+        history[index] = item;
+      } else {
+        history.unshift(item);
+      }
+      writeHistoryToFile(history);
+      res.json({ success: true, item });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to save history item." });
+    }
+  });
+
+  app.delete("/api/history/:id", (req, res) => {
+    try {
+      const { id } = req.params;
+      const history = readHistoryFromFile();
+      const filtered = history.filter((h: any) => h.id !== id);
+      writeHistoryToFile(filtered);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to delete history item." });
+    }
   });
 
   app.post("/api/analyze", async (req, res) => {
