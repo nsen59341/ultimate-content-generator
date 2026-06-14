@@ -119,7 +119,15 @@ const OutputView: React.FC<OutputViewProps> = ({ platform, content, mediaUrl, on
                     {platform === Platform.Image ? (
                       <img src={mediaUrl} alt="Generated asset" className="relative w-full rounded-2xl shadow-2xl border border-slate-800" />
                     ) : (
-                      <video src={mediaUrl} controls autoPlay className="relative w-full rounded-2xl shadow-2xl border border-slate-800" />
+                      <video 
+                        src={mediaUrl} 
+                        controls 
+                        autoPlay 
+                        muted 
+                        playsInline 
+                        loop 
+                        className="relative w-full rounded-2xl shadow-2xl border border-slate-800" 
+                      />
                     )}
                   </div>
                   <div className="mt-10 p-8 bg-slate-800/30 rounded-2xl border border-slate-700/50 backdrop-blur-sm">
