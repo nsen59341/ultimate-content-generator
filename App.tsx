@@ -7,11 +7,13 @@ import ContentCard from './components/ContentCard';
 import PlatformSelector from './components/PlatformSelector';
 import PreferencesSection from './components/PreferencesSection';
 import OutputView from './components/OutputView';
+import HistoryView from './components/HistoryView';
 import { fetchAndAnalyzeContent, generatePlatformContent, generateImage, generateVideo } from './services/openai';
 
 const App: React.FC = () => {
   const [state, setState] = useState<WorkflowState>(WorkflowState.INPUT);
   const [isLoading, setIsLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [sourceContent, setSourceContent] = useState('');
   const [cardData, setCardData] = useState<ContentCardData | null>(null);
   const [impactSummary, setImpactSummary] = useState('');
@@ -85,7 +87,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20 selection:bg-indigo-500 selection:text-white">
-      <Header />
+      <Header onViewHistory={() => setShowHistory(true)} />
+      
+      {showHistory && (
+        <HistoryView onClose={() => setShowHistory(false)} />
+      )}
       
       <main>
         {state === WorkflowState.INPUT && (

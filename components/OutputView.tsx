@@ -42,7 +42,7 @@ const OutputView: React.FC<OutputViewProps> = ({ platform, content, mediaUrl, on
 
   const handleArchive = async () => {
     setIsArchiving(true);
-    const success = await persistenceService.archiveAsset(sourceTitle, platform, content);
+    const success = await persistenceService.archiveAsset(sourceTitle, platform, content, mediaUrl);
     setIsArchiving(false);
     if (success) {
       setArchived(true);
@@ -61,7 +61,7 @@ const OutputView: React.FC<OutputViewProps> = ({ platform, content, mediaUrl, on
             <span className="text-white font-medium text-sm">{platform}</span>
           </div>
           <div className="flex gap-3">
-            {!isMedia && !isLoading && (
+            {!isLoading && (
               <>
                 <button 
                   onClick={handleArchive}
@@ -78,13 +78,15 @@ const OutputView: React.FC<OutputViewProps> = ({ platform, content, mediaUrl, on
                     'Save to DB'
                   )}
                 </button>
-                <button 
-                  onClick={copyToClipboard}
-                  className="group flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-lg transition-all duration-300 border border-slate-700"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                  <span className="text-xs font-bold uppercase tracking-wider">Copy</span>
-                </button>
+                {!isMedia && (
+                  <button 
+                    onClick={copyToClipboard}
+                    className="group flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-lg transition-all duration-300 border border-slate-700"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                    <span className="text-xs font-bold uppercase tracking-wider">Copy</span>
+                  </button>
+                )}
               </>
             )}
             <button 
@@ -117,7 +119,7 @@ const OutputView: React.FC<OutputViewProps> = ({ platform, content, mediaUrl, on
                   <div className="relative group">
                     <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
                     {platform === Platform.Image ? (
-                      <img src={mediaUrl} alt="Generated asset" className="relative w-full rounded-2xl shadow-2xl border border-slate-800" />
+                      <img src={mediaUrl} alt="Generated asset" referrerPolicy="no-referrer" className="relative w-full rounded-2xl shadow-2xl border border-slate-800" />
                     ) : (
                       <video src={mediaUrl} controls autoPlay muted playsInline loop className="relative w-full rounded-2xl shadow-2xl border border-slate-800" />
                     )}
