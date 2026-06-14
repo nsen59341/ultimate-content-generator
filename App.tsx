@@ -37,15 +37,6 @@ const App: React.FC = () => {
   };
 
   const handlePlatformSelect = async (platform: Platform) => {
-    // If Video/Image requested and using high-end models, ensure key selection (for Veo if needed)
-    if (platform === Platform.Video) {
-      const hasKey = await (window as any).aistudio?.hasSelectedApiKey();
-      if (!hasKey) {
-        await (window as any).aistudio?.openSelectKey();
-        // Proceeding anyway as per instructions (assume success)
-      }
-    }
-
     setState(WorkflowState.GENERATING);
     setIsLoading(true);
     setGenResult({ platform, content: '' });
@@ -66,12 +57,7 @@ const App: React.FC = () => {
       setGenResult(finalResult);
     } catch (error: any) {
       console.error("Error generating platform content:", error);
-      if (error.message?.includes("Requested entity was not found")) {
-        alert("API Key error. Please re-select your key.");
-        await (window as any).aistudio?.openSelectKey();
-      } else {
-        alert("Failed to generate content for " + platform);
-      }
+      alert(error.message || "Failed to generate content for " + platform);
       setState(WorkflowState.DASHBOARD);
     } finally {
       setIsLoading(false);
