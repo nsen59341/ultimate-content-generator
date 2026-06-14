@@ -189,9 +189,9 @@ export async function generateImage(prompt: string): Promise<string> {
 
 // Map high-quality cinematic slow-motion looping background stock videos for ultimate premium experience
 const STOCK_CINEMATIC_LOOPS = [
-  "https://assets.mixkit.co/videos/preview/mixkit-glowing-connections-in-a-digital-network-preview-41662-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-rotating-world-globe-with-digital-markers-preview-41661-large.mp4",
-  "https://assets.mixkit.co/videos/preview/mixkit-abstract-mesh-of-interconnected-particles-preview-41665-large.mp4"
+  "https://assets.codepen.io/13471/blue-tunnel.mp4",
+  "https://assets.codepen.io/6093409/hub.mp4",
+  "https://assets.codepen.io/3364143/7b.mp4"
 ];
 
 export async function generateVideo(prompt: string): Promise<string> {
