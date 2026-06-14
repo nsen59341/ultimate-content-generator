@@ -1,69 +1,82 @@
-import { ContentCardData, Platform, UserPreferences, HistoryItem } from "../types";
 
-function getApiUrl(path: string): string {
-  if (typeof window === "undefined") return path;
+import { GoogleGenAI, Type, GenerateContentResponse, Modality } from "@google/genai";
+import { ContentCardData, Platform, UserPreferences } from "../types";
 
-  // 1. Check localStorage override
-  const localOverride = localStorage.getItem("api_backend_url");
-  if (localOverride) {
-    return `${localOverride.replace(/\/$/, "")}${path}`;
-  }
+export const getGeminiClient = () => {
+  return new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+};
 
-  // 2. Check build-time environment variable
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) {
-    return `${envUrl.replace(/\/$/, "")}${path}`;
-  }
-
-  // 3. Fallback when running on third-party static hosts (Netlify, Vercel, Shopify, etc.)
-  const isProdCloudRun = window.location.hostname.endsWith(".run.app") || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  if (!isProdCloudRun) {
-    // Auto-route to the known production Cloud Run instance of this app
-    return `https://ais-pre-5tiqf5xftjd7cfldz3izzu-746532012934.asia-southeast1.run.app${path}`;
-  }
-
-  return path;
-}
+const GLOBAL_TONE_INSTRUCTION = `
+CRITICAL VOICE GUIDELINES:
+- Tone: Premium, executive, direct, and human. 
+- AVOID AI CLICHES: Do not use words like "delve", "unlock", "comprehensive", "in today's digital landscape", "game-changer", "mastering", "unleash", or "stay tuned".
+- STYLE: Use short, punchy sentences. Vary sentence length for rhythm. 
+- AUTHENTICITY: Sound like a person with a strong opinion, not a generic summarizer. 
+- FORMATTING: Use generous white space. No bolding every other word.
+`;
 
 export async function fetchAndAnalyzeContent(input: string): Promise<{ card: ContentCardData; impact: string; fullContent: string }> {
-  try {
-    const response = await fetch(getApiUrl("/api/analyze"), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ input })
-    });
+  const ai = getGeminiClient();
+  
+  const isUrl = input.startsWith('http');
+  const prompt = isUrl 
+    ? `Analyze the following URL: ${input}. 
+       1. If it is a YouTube video, retrieve the transcript or a highly detailed summary using Google Search.
+       2. If it is a blog or article, extract the core narrative and key arguments.
+       3. Extract specific, high-value insights.
+       
+       Constraint: Your 'analysisPoints' should be a list of detailed paragraphs.`
+    : `Analyze the following text: "${input}". Extract the core narrative and key arguments. Provide a list of detailed points.`;
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || `HTTP error ${response.status}`);
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: {
+      tools: isUrl ? [{ googleSearch: {} }] : [],
+      maxOutputTokens: 4000,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          type: { type: Type.STRING, description: "Must be 'YouTube' or 'Blog'" },
+          duration: { type: Type.STRING },
+          readTime: { type: Type.STRING },
+          summary: { type: Type.STRING },
+          impactSummary: { type: Type.STRING },
+          analysisPoints: { 
+            type: Type.ARRAY, 
+            items: { type: Type.STRING },
+            description: "A detailed list of the core points and arguments. Using an array prevents JSON truncation errors for long content."
+          }
+        },
+        required: ["title", "type", "summary", "impactSummary", "analysisPoints"]
+      }
     }
+  });
 
-    const data = await response.json();
-    const compoundContent = `TITLE OF SOURCE: ${data.title || "Untitled"}\nTYPE OF SOURCE: ${data.type || "Blog"}\nSUMMARY OF SOURCE: ${data.summary || ""}\nIMPACT SUMMARY (THE BIG IDEA): ${data.impactSummary || ""}\n\nCORE STRUCTURED KEY POINTS & TACTICAL ANALYSIS:\n${(data.analysisPoints || []).map((point: string, i: number) => `${i + 1}. ${point}`).join("\n")}\n`;
-
+  try {
+    const data = JSON.parse(response.text || '{}');
     return {
       card: {
         title: data.title || "Untitled Content",
-        type: (data.type === "YouTube" ? "YouTube" : "Blog") as any,
+        type: (data.type === 'YouTube' ? 'YouTube' : 'Blog') as any,
         duration: data.duration,
         readTime: data.readTime,
         summary: data.summary || "No summary available."
       },
       impact: data.impactSummary || "No impact summary provided.",
-      fullContent: compoundContent.trim()
+      fullContent: (data.analysisPoints || []).join('\n\n')
     };
-  } catch (error: any) {
-    console.error("Error analyzing content via proxy:", error);
-    // Graceful fallback for layout
+  } catch (e) {
+    console.error("JSON Parsing Error in fetchAndAnalyzeContent. Partial text:", response.text?.slice(-100));
     return {
       card: {
         title: "Content Analysis",
-        type: input.startsWith("http") ? "YouTube" : "Blog",
-        summary: "The structured content parsing fell back. Ready for content generation."
-      },
-      impact: "Insights parsed successfully.",
+        type: isUrl ? 'YouTube' : 'Blog',
+        summary: "The structured analysis encountered a format error, but the core content is still usable for generation."
+      } as any,
+      impact: "High-value insights detected in the source material.",
       fullContent: input
     };
   }
@@ -74,93 +87,101 @@ export async function generatePlatformContent(
   sourceContent: string, 
   preferences?: UserPreferences
 ): Promise<string> {
-  const response = await fetch(getApiUrl("/api/generate-platform"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ platform, sourceContent, preferences })
-  });
+  const ai = getGeminiClient();
+  
+  const platformInstructions: Record<Platform, string> = {
+    [Platform.LinkedIn]: "EXECUTIVE INSIGHT: Start with a disruptive hook that challenges a common industry belief. Provide 3 'golden nuggets' that are specific and actionable. Close with a thought-provoking question. No generic hashtags. 1.5x line spacing.",
+    [Platform.InstagramPost]: "CAPTION: High-converting, visual-first storytelling. First line must stop the scroll. Use simple language. CTA should feel like a personal recommendation.",
+    [Platform.InstagramReel]: "SCRIPT (60s): 0-3s is a hard hook. 3-50s is rapid-fire value with specific [Visual: Description] cues. 50-60s is a soft, high-trust CTA. Non-robotic language.",
+    [Platform.Facebook]: "COMMUNITY TONE: Write like you're talking to a group of peers. Focus on the 'Why' behind the content. High empathy, low fluff.",
+    [Platform.TweetThread]: "THREAD (5 Tweets): Tweet 1: A bold, data-backed or highly specific claim. Tweets 2-4: The core 'how-to' or logic. Tweet 5: The big takeaway + link. No emojis on every line.",
+    [Platform.Email]: "NEWSLETTER: Subject line should be short and lowercase (e.g. 'the problem with x'). Body should feel like a 1-on-1 personal update. Focus on one specific transformation.",
+    [Platform.Image]: "PROMPT: Create a hyper-realistic, cinematic visual prompt for Gemini Image. Focus on mood, lighting, and composition that looks professional and editorial, not like stock art.",
+    [Platform.Video]: "VEO SCENE: Describe a cinematic, slow-motion sequence that captures the essence of this content. High production value instructions only."
+  };
 
-  if (!response.ok) {
-    const errorMsg = await response.json().then(d => d.error).catch(() => "Unknown error");
-    throw new Error(errorMsg);
+  let preferenceInstructions = "";
+  if (preferences) {
+    const depth = preferences.complexity === 'simple' 
+      ? "- COMPLEXITY & DEPTH: Keep the content highly simple and direct. Use basic explanations, high-level structural digests, and avoid deep technical or multi-layered systematic breakdowns."
+      : "- COMPLEXITY & DEPTH: Build highly detailed, complex, nuanced, and structurally complex content. Target rigorous breakdowns, multi-layered insights, and explore advanced implications.";
+      
+    const toneMastery = preferences.tone === 'basic'
+      ? "- TONE & TERMINOLOGY: Keep it conversational, basic, friendly, and accessible. Replace heavy terms with relatable real-world analogies."
+      : "- TONE & TERMINOLOGY: Use a technical, expert, and domain-authentic tone. Utilize standard professional or technical terminology with zero dumbing-down.";
+      
+    const lengthStyle = preferences.length === 'short'
+      ? "- TARGET LENGTH: Be extremely concise and crisp (short style). Focus on high-impact hooks, direct answers, and minimum background fluff."
+      : preferences.length === 'long'
+        ? "- TARGET LENGTH: Be comprehensive and detailed (long style). Build dense sub-points, thorough reasoning, and rich value-adds with significant details."
+        : "- TARGET LENGTH: Balanced medium length. Deliver comfortable reading speed with perfect detail-to-conciseness ratio.";
+
+    const targetAudience = preferences.audience 
+      ? `- TARGET AUDIENCE PROFILE: Align language, tone, metaphors, and value proposition specifically for: ${preferences.audience}` 
+      : "";
+
+    const userDirectives = preferences.customInstructions 
+      ? `- SPECIAL STYLE DIRECTIVES & RULES:\n${preferences.customInstructions}` 
+      : "";
+
+    preferenceInstructions = `
+PREFERENCE ALIGNMENT RULES (STRICTLY ADHERE TO THESE):
+${depth}
+${toneMastery}
+${lengthStyle}
+${targetAudience}
+${userDirectives}
+`;
   }
 
-  const result = await response.json();
-  return result.content || "Failed to generate content.";
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Platform: ${platform}\nSource Content: ${sourceContent}`,
+    config: {
+      systemInstruction: GLOBAL_TONE_INSTRUCTION + "\n" + platformInstructions[platform] + "\n" + preferenceInstructions
+    }
+  });
+
+  return response.text || "Failed to generate content.";
 }
 
 export async function generateImage(prompt: string): Promise<string> {
-  const response = await fetch(getApiUrl("/api/generate-image"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ prompt })
+  const ai = getGeminiClient();
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: { parts: [{ text: `Professional, editorial, cinematic photography style: ${prompt}` }] },
+    config: {
+      imageConfig: { aspectRatio: "16:9" }
+    }
   });
 
-  if (!response.ok) {
-    throw new Error("Failed to generate DALL-E-3 image concept");
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) {
+      return `data:image/png;base64,${part.inlineData.data}`;
+    }
   }
-
-  const result = await response.json();
-  return result.imageUrl;
+  throw new Error("No image generated");
 }
 
 export async function generateVideo(prompt: string): Promise<string> {
-  const response = await fetch(getApiUrl("/api/generate-video"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ prompt })
+  const ai = getGeminiClient();
+  let operation = await ai.models.generateVideos({
+    model: 'veo-3.1-fast-generate-preview',
+    prompt: `Cinematic high-end production: ${prompt}`,
+    config: {
+      numberOfVideos: 1,
+      resolution: '720p',
+      aspectRatio: '16:9'
+    }
   });
 
-  if (!response.ok) {
-    throw new Error("Failed to generate OpenAI video concept");
+  while (!operation.done) {
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    operation = await ai.operations.getVideosOperation({ operation });
   }
 
-  const result = await response.json();
-  // Return the high-production abstract video loop URL directly for flawless browser playback
-  return result.videoUrl;
-}
-
-export async function fetchHistory(): Promise<HistoryItem[]> {
-  try {
-    const res = await fetch(getApiUrl("/api/history"));
-    if (!res.ok) {
-      throw new Error("Failed to load history.");
-    }
-    return await res.json();
-  } catch (error) {
-    console.error("API error fetching history:", error);
-    return [];
-  }
-}
-
-export async function saveHistory(item: HistoryItem): Promise<boolean> {
-  try {
-    const res = await fetch(getApiUrl("/api/history"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ item })
-    });
-    return res.ok;
-  } catch (error) {
-    console.error("API error saving history item:", error);
-    return false;
-  }
-}
-
-export async function deleteHistoryItem(id: string): Promise<boolean> {
-  try {
-    const res = await fetch(getApiUrl(`/api/history/${id}`), {
-      method: "DELETE"
-    });
-    return res.ok;
-  } catch (error) {
-    console.error("API error deleting history item:", error);
-    return false;
-  }
+  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+  const res = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 }
