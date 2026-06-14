@@ -317,8 +317,22 @@ ${userDirectives}
           res.json({ imageUrl: response.data[0].url });
           return;
         }
-      } catch (dalleErr: any) {
-        console.warn("DALL-E-3 failed to generate image, falling back:", dalleErr);
+      } catch (dalle3Err: any) {
+        console.warn("DALL-E-3 failed to generate image, trying DALL-E-2:", dalle3Err.message || dalle3Err);
+        try {
+          const response2 = await openai.images.generate({
+            model: "dall-e-2",
+            prompt: `Creative modern editorial style concept visual: ${prompt.slice(0, 800)}`,
+            n: 1,
+            size: "1024x1024",
+          });
+          if (response2.data?.[0]?.url) {
+            res.json({ imageUrl: response2.data[0].url });
+            return;
+          }
+        } catch (dalle2Err: any) {
+          console.warn("DALL-E-2 also failed to generate image, resorting to Unsplash:", dalle2Err.message || dalle2Err);
+        }
       }
 
       // Elegant high-fidelity photographic abstract fallback using Unsplash
@@ -351,8 +365,21 @@ ${userDirectives}
         if (response.data?.[0]?.url) {
           storyboardUrl = response.data[0].url;
         }
-      } catch (dalleErr: any) {
-        console.warn("DALL-E-3 failed to generate storyboard frame, falling back:", dalleErr);
+      } catch (dalle3Err: any) {
+        console.warn("DALL-E-3 failed to generate storyboard frame, trying DALL-E-2:", dalle3Err.message || dalle3Err);
+        try {
+          const response2 = await openai.images.generate({
+            model: "dall-e-2",
+            prompt: `Cinematic composition element visual helper: ${prompt.slice(0, 800)}`,
+            n: 1,
+            size: "1024x1024",
+          });
+          if (response2.data?.[0]?.url) {
+            storyboardUrl = response2.data[0].url;
+          }
+        } catch (dalle2Err: any) {
+          console.warn("DALL-E-2 also failed to generate storyboard, resorting to Unsplash:", dalle2Err.message || dalle2Err);
+        }
       }
 
       // Map beautiful abstract video clips for dynamic premium ambient animations based on prompt keywords
