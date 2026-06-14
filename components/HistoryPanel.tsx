@@ -127,9 +127,9 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   <div>
                     <div className="flex justify-between items-start gap-2 mb-2">
                       <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${
-                        item.cardData.type === 'YouTube' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                        item.cardData?.type === 'YouTube' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                       }`}>
-                        {item.cardData.type}
+                        {item.cardData?.type || 'Text'}
                       </span>
                       <span className="text-[10px] text-slate-500">
                         {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -137,11 +137,11 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                     </div>
 
                     <h4 className="font-semibold text-sm line-clamp-1 text-slate-200 group-hover:text-white transition-colors">
-                      {item.cardData.title}
+                      {item.cardData?.title || 'Untitled Session'}
                     </h4>
 
                     <p className="text-[11px] text-slate-400 line-clamp-2 mt-1 italic">
-                      &ldquo;{item.cardData.summary}&rdquo;
+                      &ldquo;{item.cardData?.summary || 'No summary available.'}&rdquo;
                     </p>
 
                     {item.generations && item.generations.length > 0 && (

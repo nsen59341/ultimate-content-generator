@@ -1,8 +1,33 @@
 import { ContentCardData, Platform, UserPreferences, HistoryItem } from "../types";
 
+function getApiUrl(path: string): string {
+  if (typeof window === "undefined") return path;
+
+  // 1. Check localStorage override
+  const localOverride = localStorage.getItem("api_backend_url");
+  if (localOverride) {
+    return `${localOverride.replace(/\/$/, "")}${path}`;
+  }
+
+  // 2. Check build-time environment variable
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    return `${envUrl.replace(/\/$/, "")}${path}`;
+  }
+
+  // 3. Fallback when running on third-party static hosts (Netlify, Vercel, Shopify, etc.)
+  const isProdCloudRun = window.location.hostname.endsWith(".run.app") || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  if (!isProdCloudRun) {
+    // Auto-route to the known production Cloud Run instance of this app
+    return `https://ais-pre-5tiqf5xftjd7cfldz3izzu-746532012934.asia-southeast1.run.app${path}`;
+  }
+
+  return path;
+}
+
 export async function fetchAndAnalyzeContent(input: string): Promise<{ card: ContentCardData; impact: string; fullContent: string }> {
   try {
-    const response = await fetch("/api/analyze", {
+    const response = await fetch(getApiUrl("/api/analyze"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -16,14 +41,7 @@ export async function fetchAndAnalyzeContent(input: string): Promise<{ card: Con
     }
 
     const data = await response.json();
-    const compoundContent = `TITLE OF SOURCE: ${data.title || "Untitled"}
-TYPE OF SOURCE: ${data.type || "Blog"}
-SUMMARY OF SOURCE: ${data.summary || ""}
-IMPACT SUMMARY (THE BIG IDEA): ${data.impactSummary || ""}
-
-CORE STRUCTURED KEY POINTS & TACTICAL ANALYSIS:
-${(data.analysisPoints || []).map((point: string, i: number) => `${i + 1}. ${point}`).join("\n")}
-`;
+    const compoundContent = `TITLE OF SOURCE: ${data.title || "Untitled"}\nTYPE OF SOURCE: ${data.type || "Blog"}\nSUMMARY OF SOURCE: ${data.summary || ""}\nIMPACT SUMMARY (THE BIG IDEA): ${data.impactSummary || ""}\n\nCORE STRUCTURED KEY POINTS & TACTICAL ANALYSIS:\n${(data.analysisPoints || []).map((point: string, i: number) => `${i + 1}. ${point}`).join("\n")}\n`;
 
     return {
       card: {
@@ -56,7 +74,7 @@ export async function generatePlatformContent(
   sourceContent: string, 
   preferences?: UserPreferences
 ): Promise<string> {
-  const response = await fetch("/api/generate-platform", {
+  const response = await fetch(getApiUrl("/api/generate-platform"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -74,7 +92,7 @@ export async function generatePlatformContent(
 }
 
 export async function generateImage(prompt: string): Promise<string> {
-  const response = await fetch("/api/generate-image", {
+  const response = await fetch(getApiUrl("/api/generate-image"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -91,7 +109,7 @@ export async function generateImage(prompt: string): Promise<string> {
 }
 
 export async function generateVideo(prompt: string): Promise<string> {
-  const response = await fetch("/api/generate-video", {
+  const response = await fetch(getApiUrl("/api/generate-video"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -110,7 +128,7 @@ export async function generateVideo(prompt: string): Promise<string> {
 
 export async function fetchHistory(): Promise<HistoryItem[]> {
   try {
-    const res = await fetch("/api/history");
+    const res = await fetch(getApiUrl("/api/history"));
     if (!res.ok) {
       throw new Error("Failed to load history.");
     }
@@ -123,7 +141,7 @@ export async function fetchHistory(): Promise<HistoryItem[]> {
 
 export async function saveHistory(item: HistoryItem): Promise<boolean> {
   try {
-    const res = await fetch("/api/history", {
+    const res = await fetch(getApiUrl("/api/history"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ item })
@@ -137,7 +155,7 @@ export async function saveHistory(item: HistoryItem): Promise<boolean> {
 
 export async function deleteHistoryItem(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/history/${id}`, {
+    const res = await fetch(getApiUrl(`/api/history/${id}`), {
       method: "DELETE"
     });
     return res.ok;
@@ -146,4 +164,3 @@ export async function deleteHistoryItem(id: string): Promise<boolean> {
     return false;
   }
 }
-
