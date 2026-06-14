@@ -7,7 +7,7 @@ import ContentCard from './components/ContentCard';
 import PlatformSelector from './components/PlatformSelector';
 import PreferencesSection from './components/PreferencesSection';
 import OutputView from './components/OutputView';
-import { fetchAndAnalyzeContent, generatePlatformContent, generateImage, generateVideo } from './services/gemini';
+import { fetchAndAnalyzeContent, generatePlatformContent, generateImage, generateVideo } from './services/openai';
 
 const App: React.FC = () => {
   const [state, setState] = useState<WorkflowState>(WorkflowState.INPUT);
